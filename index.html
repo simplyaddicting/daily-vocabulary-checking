@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Vocabulary Checking</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- THANH TRÊN CÙNG -->
+  <header class="topbar">
+    <div class="brand" id="brand">Daily Vocabulary Checking</div>
+    <div class="right hidden" id="topbar-right">
+      <button class="btn btn-light" id="btn-lang-all" type="button">EN ⇄ VI (tất cả)</button>
+      <span class="timer" id="timer">00:00</span>
+      <button class="btn btn-light" id="btn-submit" type="button">Nộp bài</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- MÀN HÌNH 0: ĐANG TẢI -->
+    <section class="screen" id="screen-loading">
+      <div class="card narrow center">
+        <p id="loading-text">Đang tải đề hôm nay...</p>
+        <div class="msg msg-error hidden" id="loading-error"></div>
+        <button class="btn btn-secondary hidden" id="btn-retry" type="button">Thử lại</button>
+      </div>
+    </section>
+
+    <!-- MÀN HÌNH 1: NHẬP TÊN -->
+    <section class="screen hidden" id="screen-login">
+      <div class="card narrow">
+        <h1>Kiểm tra từ vựng</h1>
+        <p class="muted" id="topic-info"></p>
+        <div class="form-group">
+          <label for="student-name">Họ và tên</label>
+          <input type="text" id="student-name" placeholder="Ví dụ: Nguyễn Văn A" maxlength="100" autocomplete="name">
+        </div>
+        <div class="msg msg-error hidden" id="login-msg"></div>
+        <button class="btn btn-primary btn-block" id="btn-start" type="button">Bắt đầu làm bài</button>
+      </div>
+    </section>
+
+    <!-- MÀN HÌNH 2: LÀM BÀI -->
+    <section class="screen hidden" id="screen-quiz">
+      <div class="toolbar">
+        <div>
+          <strong id="quiz-topic"></strong>
+          <span class="muted" id="quiz-student"></span>
+        </div>
+        <span class="muted" id="quiz-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="quiz-table">
+          <thead>
+            <tr>
+              <th class="col-idx">#</th>
+              <th>Từ vựng</th>
+              <th>Nghĩa (EN / VI)</th>
+              <th>Synonym / Antonym</th>
+            </tr>
+          </thead>
+          <tbody id="quiz-body"></tbody>
+        </table>
+      </div>
+      <p class="center" style="margin-top:16px;">
+        <button class="btn btn-primary" id="btn-submit-bottom" type="button">Nộp bài</button>
+      </p>
+    </section>
+
+    <!-- MÀN HÌNH 3: KẾT QUẢ -->
+    <section class="screen hidden" id="screen-result">
+      <div class="card">
+        <h2>Kết quả của <span id="res-name"></span></h2>
+        <div class="summary-grid">
+          <div class="summary-box"><div class="label">Điểm số</div><div class="value" id="res-score">0/0</div></div>
+          <div class="summary-box"><div class="label">Tỉ lệ đúng</div><div class="value" id="res-percent">0%</div></div>
+          <div class="summary-box"><div class="label">Thời gian hoàn thành</div><div class="value" id="res-time">00:00</div></div>
+        </div>
+        <div class="msg msg-info" id="res-send-status">Đang gửi kết quả cho giáo viên...</div>
+        <p class="muted">Ô xanh là đúng, ô đỏ là sai (đáp án đúng hiện bên dưới), ô xám là không có yêu cầu.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th class="col-idx">#</th>
+              <th>Từ vựng</th>
+              <th>Nghĩa</th>
+              <th>Synonym</th>
+              <th>Antonym</th>
+            </tr>
+          </thead>
+          <tbody id="result-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/csv-parser.js"></script>
+  <script src="js/student.js"></script>
+</body>
+</html>
