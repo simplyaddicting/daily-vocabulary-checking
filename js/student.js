@@ -3,6 +3,7 @@
 
   const $ = function (id) { return document.getElementById(id); };
   const DRAFT_KEY = 'vocab_draft_v1';
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   // ====== TRẠNG THÁI ======
   let cfg = null;            // { topic_name, duration_minutes, updated_at }
@@ -235,12 +236,25 @@
     return inp;
   }
 
-  function setMeaning(tr) {
+  function setMeaning(tr, animate) {
     const it = itemsById[tr.dataset.id];
     const lang = tr.dataset.lang;
-    const text = lang === 'en' ? it.definition : (it.meaning || 'Chưa có nghĩa tiếng Việt');
-    tr.querySelector('.lang-text').textContent = text || '—';
-    tr.querySelector('.lang-tag').textContent = lang === 'en' ? 'EN' : 'VI';
+    const text = (lang === 'en' ? it.definition : (it.meaning || 'Chưa có nghĩa tiếng Việt')) || '—';
+    const el = tr.querySelector('.lang-text');
+    const tog = tr.querySelector('.lang-toggle');
+    if (tog) tog.dataset.lang = lang;            // làm viên thuốc trượt sang EN hoặc VI
+
+    clearTimeout(el._t);
+    if (!animate || reduceMotion) {
+      el.textContent = text;
+      el.classList.remove('fade-out');
+      return;
+    }
+    el.classList.add('fade-out');                // mờ đi trong 100ms
+    el._t = setTimeout(function () {
+      el.textContent = text;
+      el.classList.remove('fade-out');           // rồi hiện lại trong 150ms
+    }, 100);
   }
 
   function buildQuizTable() {
@@ -261,16 +275,25 @@
       tr.appendChild(tdWord);
 
       // tabindex=-1: phím Tab bỏ qua nút này, đi thẳng từ ô từ vựng sang ô Synonym
-      const btn = h('button', { type: 'button', class: 'btn-mini', tabindex: '-1', text: 'EN ⇄ VI' });
-      btn.addEventListener('click', function () {
+      const toggle = h('button', {
+        type: 'button',
+        class: 'lang-toggle',
+        'data-lang': 'en',
+        tabindex: '-1',
+        'aria-label': 'Chuyển định nghĩa giữa tiếng Anh và tiếng Việt'
+      }, [
+        h('span', { class: 'lt-opt', text: 'EN' }),
+        h('span', { class: 'lt-opt', text: 'VI' }),
+        h('span', { class: 'lt-pill' })
+      ]);
+      toggle.addEventListener('click', function () {
         tr.dataset.lang = tr.dataset.lang === 'en' ? 'vi' : 'en';
-        setMeaning(tr);
+        setMeaning(tr, true);
       });
       tr.appendChild(h('td', { 'data-label': 'Nghĩa' }, [
         h('div', { class: 'lang-cell' }, [
-          h('span', { class: 'lang-tag' }),
           h('span', { class: 'lang-text' }),
-          btn
+          toggle
         ])
       ]));
 
@@ -299,7 +322,7 @@
     allLang = allLang === 'en' ? 'vi' : 'en';
     $('quiz-body').querySelectorAll('tr[data-id]').forEach(function (tr) {
       tr.dataset.lang = allLang;
-      setMeaning(tr);
+      setMeaning(tr, true);
     });
   }
 
@@ -363,8 +386,7 @@
     const remaining = Math.ceil((endTime - Date.now()) / 1000);
     const t = $('timer');
     t.textContent = fmt(remaining);
-    t.classList.toggle('warn', remaining <= 120 && remaining > 30);
-    t.classList.toggle('danger', remaining <= 30);
+    t.classList.toggle('danger', remaining <= Math.min(60, totalSeconds / 2));
     if (remaining <= 0) submitQuiz(true);
   }
 
@@ -392,29 +414,34 @@
       tabSwitches: tabSwitches
     };
 
-    $('res-name').textContent = studentName;
-    $('res-score').textContent = '…';
-    $('res-percent').textContent = '…';
-    $('res-time').textContent = fmt(seconds);
-    $('result-body').innerHTML = '';
-    $('topbar-right').classList.add('hidden');
-    showScreen('screen-result');
-
     sendSubmit();
   }
 
+    function setSubmitting(on) {
+    ['btn-submit', 'btn-submit-bottom'].forEach(function (id) {
+      const b = $(id);
+      b.classList.toggle('is-loading', on);   // hiện vòng xoay
+      b.disabled = on;                         // chặn bấm nhiều lần
+    });
+  }
+
   async function sendSubmit() {
-    const box = $('res-send-status');
-    box.className = 'msg msg-info';
-    box.textContent = 'Đang nộp bài và chấm điểm...';
+    const errBox = $('submit-error');
+    errBox.classList.add('hidden');
+    setSubmitting(true);
 
     let lastErr = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const res = await apiPost(lastPayload);
         clearDraft();
+        setSubmitting(false);
+
+        const box = $('res-send-status');
         box.className = 'msg msg-ok';
         box.textContent = 'Đã nộp bài và gửi kết quả cho giáo viên.';
+        $('topbar-right').classList.add('hidden');
+        showScreen('screen-result');
         renderResult(res, lastPayload.seconds);
         return;
       } catch (err) {
@@ -423,12 +450,13 @@
       }
     }
 
-    box.className = 'msg msg-error';
-    box.textContent = 'Chưa nộp được: ' + (lastErr && lastErr.message ? lastErr.message : 'lỗi mạng') +
+    setSubmitting(false);
+    errBox.className = 'msg msg-error';
+    errBox.textContent = 'Chưa nộp được: ' + (lastErr && lastErr.message ? lastErr.message : 'lỗi mạng') +
       '. Bài làm của bạn vẫn được lưu trên máy. ';
     const retry = h('button', { type: 'button', class: 'btn btn-secondary', text: 'Nộp lại' });
     retry.addEventListener('click', sendSubmit);
-    box.appendChild(retry);
+    errBox.appendChild(retry);
   }
 
   // ====== HIỂN THỊ KẾT QUẢ ======
@@ -450,10 +478,34 @@
     return td;
   }
 
+  // Số chạy tăng dần từ "from" tới "to" trong "ms" mili giây
+  function countUp(el, from, to, ms, format) {
+    if (reduceMotion || to === from) { el.textContent = format(to); return; }
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min(1, (now - start) / ms);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = format(Math.round(from + (to - from) * eased));
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Bắn pháo giấy một lần khi đạt từ 90% trở lên (thư viện canvas-confetti)
+  function fireConfetti() {
+    if (reduceMotion || typeof confetti !== 'function') return;
+    setTimeout(function () {
+      confetti({ particleCount: 90, spread: 70, origin: { y: 0.3 } });
+    }, 700);   // chờ số điểm chạy xong rồi mới bắn
+  }
+
   function renderResult(res, seconds) {
-    $('res-score').textContent = res.score + '/' + res.total;
-    $('res-percent').textContent = (res.total ? Math.round(res.score / res.total * 100) : 0) + '%';
+    const pct = res.total ? Math.round(res.score / res.total * 100) : 0;
+    $('res-name').textContent = studentName;
+    countUp($('res-score'), 0, res.score, 700, function (n) { return n + '/' + res.total; });
+    countUp($('res-percent'), 0, pct, 700, function (n) { return n + '%'; });
     $('res-time').textContent = fmt(seconds);
+    if (pct >= 90) fireConfetti();
 
     const byId = {};
     (res.details || []).forEach(function (d) { byId[d.id] = d; });

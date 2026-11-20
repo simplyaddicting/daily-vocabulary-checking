@@ -30,6 +30,13 @@
         <p id="loading-text">Đang tải đề hôm nay...</p>
         <div class="msg msg-error hidden" id="loading-error"></div>
         <button class="btn btn-secondary hidden" id="btn-retry" type="button">Thử lại</button>
+      <div class="sk-table" aria-hidden="true">
+      <div class="sk-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+      <div class="sk-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+      <div class="sk-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+      <div class="sk-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+      <div class="sk-row"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+    </div>
       </div>
     </section>
 
@@ -77,6 +84,7 @@
           <tbody id="quiz-body"></tbody>
         </table>
       </div>
+      <div class="msg msg-error hidden" id="submit-error"></div>
       <p class="center" style="margin-top:16px;">
         <button class="btn btn-primary" id="btn-submit-bottom" type="button">Nộp bài</button>
       </p>
@@ -111,7 +119,7 @@
     </section>
 
   </main>
-
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
   <script src="js/config.js"></script>
   <script src="js/student.js"></script>
 </body>

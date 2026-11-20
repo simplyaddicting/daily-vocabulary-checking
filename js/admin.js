@@ -428,6 +428,16 @@
     URL.revokeObjectURL(a.href);
   }
 
+  // Nút nào đang bị khóa (đang chờ server) thì tự hiện vòng xoay
+  new MutationObserver(function (list) {
+    list.forEach(function (m) {
+      const el = m.target;
+      if (el.classList && el.classList.contains('btn')) {
+        el.classList.toggle('is-loading', el.disabled);
+      }
+    });
+  }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['disabled'] });
+
   // ====== GẮN SỰ KIỆN ======
   $('btn-login').addEventListener('click', function () {
     const pw = $('admin-password').value;

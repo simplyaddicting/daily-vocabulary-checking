@@ -382,3 +382,160 @@ details > summary { cursor: pointer; color: var(--primary); font-weight: 600; fo
   .heat-item { grid-template-columns: 24px 1fr 90px; }
   .heat-bar { grid-column: 1 / -1; order: 4; }
 }
+
+/* =========================================================
+   ANIMATION (dán ở cuối file để ghi đè các quy tắc phía trên)
+   ========================================================= */
+
+/* ---- 1. Chuyển cảnh giữa các màn hình: fade-in + trượt lên 14px, 250ms ---- */
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.screen:not(.hidden) { animation: screenIn 250ms ease-out; }
+
+/* ---- 2a. Ô nhập khi focus: viền sáng mượt, phóng nhẹ, bóng đổ dịu ---- */
+input, select {
+  transition: border-color .2s, box-shadow .2s, background-color .2s, transform .2s;
+}
+.ans-input:focus {
+  transform: scale(1.012);
+  transform-origin: left center;
+  box-shadow: 0 0 0 4px var(--primary-soft), 0 8px 18px rgba(51, 85, 232, .18);
+}
+.quiz-table td { transition: background-color .2s; }
+
+/* ---- 2b. Nút trượt viên thuốc EN | VI (JS dựng ở lượt sau) ---- */
+.lang-tag { display: none; }   /* nút trượt đã thể hiện ngôn ngữ nên ẩn nhãn cũ */
+
+.lang-toggle {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  flex-shrink: 0;
+  padding: 2px;
+  border: 1.5px solid var(--primary);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--primary);
+  font: 700 .72rem var(--font);
+  cursor: pointer;
+}
+.lang-toggle .lt-opt {
+  position: relative;
+  z-index: 1;
+  padding: 3px 10px;
+  text-align: center;
+  transition: color .25s;
+}
+.lang-toggle .lt-pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 999px;
+  background: var(--primary);
+  transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+}
+.lang-toggle[data-lang="vi"] .lt-pill { transform: translateX(100%); }
+.lang-toggle[data-lang="en"] .lt-opt:nth-of-type(1),
+.lang-toggle[data-lang="vi"] .lt-opt:nth-of-type(2) { color: #fff; }
+.lang-toggle:focus-visible { outline: 3px solid var(--primary-soft); box-shadow: 0 0 0 2px var(--primary); }
+
+/* Đoạn định nghĩa: mờ nhanh 100ms rồi hiện lại 150ms khi đổi EN/VI */
+.lang-text { transition: opacity .15s ease; }
+.lang-text.fade-out { opacity: 0; transition-duration: .1s; }
+
+/* ---- 3. Đồng hồ: bình thường đứng yên, còn ≤ 60 giây thì đỏ nhạt + nhịp đập ---- */
+.timer { transition: background-color .3s, color .3s; }
+.timer.danger {
+  background: var(--bad-bg);
+  color: var(--bad);
+  animation: timerPulse 1s ease-in-out infinite;
+}
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+/* ---- 4. Phản hồi khi chấm: ô sai rung lắc 2 nhịp, rồi đáp án đúng hiện ra ---- */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.cell-bad .mine { display: inline-block; animation: shake 300ms ease-in-out 450ms both; }
+.cell-bad .correct-answer { animation: fadeSlide 250ms ease-out 750ms both; }
+
+/* ---- 5a. Các dòng bảng hiện lần lượt: 12 dòng đầu cách nhau 30ms, từ dòng 13 hiện cùng lúc ---- */
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.quiz-table tbody tr,
+.result-table tbody tr { animation: rowIn 300ms ease-out backwards; }
+.quiz-table tbody tr:nth-child(2),.result-table tbody tr:nth-child(2){animation-delay:30ms}
+.quiz-table tbody tr:nth-child(3),.result-table tbody tr:nth-child(3){animation-delay:60ms}
+.quiz-table tbody tr:nth-child(4),.result-table tbody tr:nth-child(4){animation-delay:90ms}
+.quiz-table tbody tr:nth-child(5),.result-table tbody tr:nth-child(5){animation-delay:120ms}
+.quiz-table tbody tr:nth-child(6),.result-table tbody tr:nth-child(6){animation-delay:150ms}
+.quiz-table tbody tr:nth-child(7),.result-table tbody tr:nth-child(7){animation-delay:180ms}
+.quiz-table tbody tr:nth-child(8),.result-table tbody tr:nth-child(8){animation-delay:210ms}
+.quiz-table tbody tr:nth-child(9),.result-table tbody tr:nth-child(9){animation-delay:240ms}
+.quiz-table tbody tr:nth-child(10),.result-table tbody tr:nth-child(10){animation-delay:270ms}
+.quiz-table tbody tr:nth-child(11),.result-table tbody tr:nth-child(11){animation-delay:300ms}
+.quiz-table tbody tr:nth-child(12),.result-table tbody tr:nth-child(12){animation-delay:330ms}
+
+/* ---- 5b. Skeleton / shimmer khi đang tải đề ---- */
+@keyframes shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+.skeleton {
+  display: block;
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.sk-table { margin-top: 18px; display: grid; gap: 16px; }
+.sk-row { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 12px; align-items: center; }
+.sk-row .skeleton:nth-child(2) { height: 22px; }
+#loading-error:not(.hidden) ~ .sk-table { display: none; }   /* có lỗi thì ẩn skeleton */
+
+/* ---- 6. Nút bấm: lún nhẹ + vòng xoay khi đang chờ ---- */
+.btn, .btn-mini { transition: background .15s, transform .1s, box-shadow .15s; }
+.btn:active:not(:disabled), .btn-mini:active { transform: scale(.97); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn.is-loading { pointer-events: none; opacity: .9; }
+.btn.is-loading::before {
+  content: "";
+  display: inline-block;
+  width: .95em;
+  height: .95em;
+  margin-right: .55em;
+  vertical-align: -.12em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+/* ---- Người dùng bật "giảm chuyển động" trong hệ điều hành: tắt gần hết hiệu ứng ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
