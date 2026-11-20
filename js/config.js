@@ -8,12 +8,13 @@ const APP_CONFIG = {
 // ====== HÀM GỌI BACKEND (dùng chung cho học sinh và Admin) ======
 
 // Lấy đề hiện tại (công khai)
-async function apiGetConfig() {
+// Lấy đề hôm nay (công khai, KHÔNG có đáp án): trả về { config, items }
+async function apiGetQuiz() {
   const res = await fetch(APP_CONFIG.API_URL, { cache: 'no-store' });
   if (!res.ok) throw new Error('Không kết nối được máy chủ (HTTP ' + res.status + ')');
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'Lỗi không xác định');
-  return data.config;
+  return data;
 }
 
 // Gửi dữ liệu lên backend (nộp bài, đăng nhập Admin, lưu cấu hình, xem kết quả)

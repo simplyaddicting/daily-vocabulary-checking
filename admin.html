@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Daily Vocabulary Checking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -44,6 +47,15 @@
         <div class="card">
           <h2>Đề hôm nay</h2>
           <p class="muted" id="current-info">Đang tải cấu hình hiện tại...</p>
+          <div class="form-group">
+            <label for="preset-select">Chọn nhanh từ kho đề</label>
+            <div class="inline-row">
+              <select id="preset-select"><option value="">Đang tải kho đề...</option></select>
+              <button class="btn btn-primary" id="btn-activate" type="button">Kích hoạt</button>
+              <button class="btn btn-secondary" id="btn-del-preset" type="button">Xóa khỏi kho</button>
+            </div>
+          </div>
+          <hr class="divider">
 
           <div class="form-group">
             <label for="cfg-csv">Link CSV (Google Sheets → Phát hành lên web → CSV)</label>
@@ -62,6 +74,7 @@
 
           <div class="toolbar" style="justify-content:flex-start;">
             <button class="btn btn-secondary" id="btn-test-csv" type="button">Kiểm tra link CSV</button>
+            <button class="btn btn-secondary" id="btn-save-preset" type="button">Lưu vào kho đề</button>
             <button class="btn btn-primary" id="btn-save-config" type="button">Cập nhật đề hôm nay</button>
           </div>
         </div>
@@ -74,6 +87,9 @@
             <div class="toolbar" style="margin:0;">
               <select id="filter-topic" style="width:auto;">
                 <option value="">Tất cả chủ đề</option>
+              </select>
+              <select id="filter-date" style="width:auto;">
+                <option value="">Tất cả ngày</option>
               </select>
               <select id="sort-by" style="width:auto;">
                 <option value="newest">Mới nhất</option>
@@ -91,6 +107,11 @@
           <div class="msg msg-error hidden" id="results-msg"></div>
         </div>
 
+        <div class="card" id="heat-card">
+          <h2>Từ vựng hay sai nhất</h2>
+          <div class="muted" id="heat-note"></div>
+          <div class="heat-list" id="heat-list"></div>
+        </div>
         <div class="table-wrap scroll-x">
           <table class="admin-table">
             <thead>
@@ -102,6 +123,7 @@
                 <th>Điểm</th>
                 <th>Tỉ lệ</th>
                 <th>Thời gian làm</th>
+                <th>Rời tab</th>
                 <th>Chi tiết câu sai</th>
               </tr>
             </thead>
@@ -115,7 +137,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="js/config.js"></script>
-  <script src="js/csv-parser.js"></script>
   <script src="js/admin.js"></script>
 </body>
 </html>

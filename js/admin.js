@@ -5,7 +5,9 @@
 
   let password = '';
   let allResults = [];
+  let presets = [];
   let refreshTimer = null;
+  let dateInitialized = false;   // đã tự chọn "ngày mới nhất" lần đầu chưa
 
   // ====== TIỆN ÍCH ======
   function h(tag, attrs, children) {
@@ -65,6 +67,7 @@
       showScreen('admin');
       showTab('config');
       loadCurrentConfig();
+      loadPresets('');
     } catch (err) {
       try { sessionStorage.removeItem('vocab_admin_pw'); } catch (e) {}
       if (!silent) showMsg('login-msg', 'error', err.message || String(err));
@@ -85,7 +88,8 @@
   // ====== TAB 1: CẬP NHẬT ĐỀ ======
   async function loadCurrentConfig() {
     try {
-      const c = await apiGetConfig();
+      const data = await apiPost({ action: 'getConfig', password: password });
+      const c = data.config;
       $('cfg-csv').value = c.csv_url || '';
       $('cfg-topic').value = c.topic_name || '';
       $('cfg-duration').value = c.duration_minutes || 15;
@@ -106,6 +110,16 @@
     };
   }
 
+  function validateForm(f) {
+    if (!f.csv_url) return 'Vui lòng dán link CSV.';
+    if (!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(f.csv_url)) {
+      return 'Link phải là link Google Sheets (bắt đầu bằng https://docs.google.com/spreadsheets/).';
+    }
+    if (!f.topic_name) return 'Vui lòng nhập tên chủ đề.';
+    if (!(f.duration_minutes >= 1 && f.duration_minutes <= 180)) return 'Thời gian phải từ 1 đến 180 phút.';
+    return '';
+  }
+
   async function testCsv() {
     const f = readConfigForm();
     if (!f.csv_url) { showMsg('config-msg', 'error', 'Vui lòng dán link CSV.'); return; }
@@ -113,13 +127,11 @@
     btn.disabled = true;
     showMsg('config-msg', 'info', 'Đang kiểm tra link CSV...');
     try {
-      const list = await VocabParser.loadVocab(f.csv_url);
-      const noSyn = list.filter(function (e) { return !e.hasSyn; }).length;
-      const noAnt = list.filter(function (e) { return !e.hasAnt; }).length;
-      const noVi  = list.filter(function (e) { return !e.meaning; }).length;
+      const r = await apiPost({ action: 'previewCsv', password: password, csv_url: f.csv_url });
       showMsg('config-msg', 'ok',
-        'Link hợp lệ: đọc được ' + list.length + ' từ. Ví dụ dòng đầu: "' + list[0].word + '". ' +
-        'Không có Synonym: ' + noSyn + ' · Không có Antonym: ' + noAnt + ' · Thiếu nghĩa tiếng Việt: ' + noVi + '.');
+        'Link hợp lệ: đọc được ' + r.count + ' từ. Ví dụ dòng đầu: "' + r.firstWord + '". ' +
+        'Không có Synonym: ' + r.noSyn + ' · Không có Antonym: ' + r.noAnt +
+        ' · Thiếu nghĩa tiếng Việt: ' + r.noVi + '.');
     } catch (err) {
       showMsg('config-msg', 'error', 'Link không dùng được: ' + (err.message || err));
     } finally {
@@ -129,32 +141,94 @@
 
   async function saveConfig() {
     const f = readConfigForm();
-    if (!f.csv_url) { showMsg('config-msg', 'error', 'Vui lòng dán link CSV.'); return; }
-    if (!/^https?:\/\//i.test(f.csv_url)) { showMsg('config-msg', 'error', 'Link CSV phải bắt đầu bằng https://'); return; }
-    if (!f.topic_name) { showMsg('config-msg', 'error', 'Vui lòng nhập tên chủ đề.'); return; }
-    if (!(f.duration_minutes >= 1 && f.duration_minutes <= 180)) {
-      showMsg('config-msg', 'error', 'Thời gian phải từ 1 đến 180 phút.');
-      return;
-    }
+    const problem = validateForm(f);
+    if (problem) { showMsg('config-msg', 'error', problem); return; }
 
-    const btn = $('btn-save-config');
-    btn.disabled = true;
+    const btns = [$('btn-save-config'), $('btn-activate')];
+    btns.forEach(function (b) { b.disabled = true; });
     showMsg('config-msg', 'info', 'Đang kiểm tra và lưu...');
     try {
-      await VocabParser.loadVocab(f.csv_url);   // chặn lưu nếu link CSV hỏng
-      await apiPost({
+      const r = await apiPost({
         action: 'saveConfig',
         password: password,
         csv_url: f.csv_url,
         topic_name: f.topic_name,
         duration_minutes: f.duration_minutes
       });
-      showMsg('config-msg', 'ok', 'Đã cập nhật đề. Học sinh mở trang sẽ thấy đề mới ngay.');
+      showMsg('config-msg', 'ok',
+        'Đã kích hoạt đề "' + f.topic_name + '" (' + r.count + ' từ). Học sinh tải lại trang sẽ thấy đề mới.');
       loadCurrentConfig();
     } catch (err) {
       showMsg('config-msg', 'error', 'Chưa lưu được: ' + (err.message || err));
     } finally {
-      btn.disabled = false;
+      btns.forEach(function (b) { b.disabled = false; });
+    }
+  }
+
+  // ====== KHO ĐỀ (PRESETS) ======
+  async function loadPresets(selectName) {
+    try {
+      const data = await apiPost({ action: 'getPresets', password: password });
+      presets = data.presets || [];
+    } catch (err) {
+      presets = [];
+      showMsg('config-msg', 'error', 'Không tải được kho đề: ' + (err.message || err));
+    }
+    const sel = $('preset-select');
+    sel.innerHTML = '';
+    sel.appendChild(h('option', {
+      value: '',
+      text: presets.length ? '-- Chọn đề trong kho --' : '(Kho đề đang trống, hãy lưu đề vào kho)'
+    }));
+    presets.forEach(function (p) { sel.appendChild(h('option', { value: p.name, text: p.name })); });
+    if (selectName) sel.value = selectName;
+  }
+
+  function findPreset() {
+    const name = $('preset-select').value;
+    return presets.filter(function (p) { return p.name === name; })[0] || null;
+  }
+
+  function onPresetChange() {
+    const p = findPreset();
+    if (!p) return;
+    $('cfg-csv').value = p.url;
+    $('cfg-topic').value = p.name;
+    hideMsg('config-msg');
+  }
+
+  async function activatePreset() {
+    const p = findPreset();
+    if (!p) { showMsg('config-msg', 'error', 'Hãy chọn một đề trong kho trước.'); return; }
+    onPresetChange();
+    const minutes = Number($('cfg-duration').value);
+    if (!window.confirm('Kích hoạt đề "' + p.name + '" (' + minutes + ' phút) cho học sinh?')) return;
+    await saveConfig();
+  }
+
+  async function savePreset() {
+    const f = readConfigForm();
+    const problem = validateForm(f);
+    if (problem) { showMsg('config-msg', 'error', problem); return; }
+    try {
+      await apiPost({ action: 'savePreset', password: password, name: f.topic_name, url: f.csv_url });
+      await loadPresets(f.topic_name);
+      showMsg('config-msg', 'ok', 'Đã lưu "' + f.topic_name + '" vào kho đề.');
+    } catch (err) {
+      showMsg('config-msg', 'error', 'Chưa lưu được vào kho: ' + (err.message || err));
+    }
+  }
+
+  async function deletePreset() {
+    const p = findPreset();
+    if (!p) { showMsg('config-msg', 'error', 'Hãy chọn một đề trong kho để xóa.'); return; }
+    if (!window.confirm('Xóa "' + p.name + '" khỏi kho đề? (Không ảnh hưởng đề đang dùng)')) return;
+    try {
+      await apiPost({ action: 'deletePreset', password: password, name: p.name });
+      await loadPresets('');
+      showMsg('config-msg', 'ok', 'Đã xóa "' + p.name + '" khỏi kho đề.');
+    } catch (err) {
+      showMsg('config-msg', 'error', 'Chưa xóa được: ' + (err.message || err));
     }
   }
 
@@ -167,30 +241,54 @@
         r._order = i;   // 0 = mới nhất
         return r;
       });
-      refreshTopicFilter();
+      refreshFilters();
       renderResults();
     } catch (err) {
       showMsg('results-msg', 'error', 'Không tải được kết quả: ' + (err.message || err));
     }
   }
 
-  function refreshTopicFilter() {
-    const sel = $('filter-topic');
-    const current = sel.value;
+  function refreshFilters() {
+    // --- bộ lọc chủ đề ---
+    const tSel = $('filter-topic');
+    const prevTopic = tSel.value;
     const topics = [];
     allResults.forEach(function (r) {
       if (r.topic && topics.indexOf(r.topic) === -1) topics.push(r.topic);
     });
-    sel.innerHTML = '';
-    sel.appendChild(h('option', { value: '', text: 'Tất cả chủ đề' }));
-    topics.forEach(function (t) { sel.appendChild(h('option', { value: t, text: t })); });
-    sel.value = topics.indexOf(current) !== -1 ? current : '';
+    tSel.innerHTML = '';
+    tSel.appendChild(h('option', { value: '', text: 'Tất cả chủ đề' }));
+    topics.forEach(function (t) { tSel.appendChild(h('option', { value: t, text: t })); });
+    tSel.value = topics.indexOf(prevTopic) !== -1 ? prevTopic : '';
+
+    // --- bộ lọc ngày (lần đầu tự chọn ngày mới nhất) ---
+    const dSel = $('filter-date');
+    const prevDate = dSel.value;
+    const dates = [];
+    allResults.forEach(function (r) {
+      const d = String(r.submittedAt).slice(0, 10);
+      if (d && dates.indexOf(d) === -1) dates.push(d);
+    });
+    dates.sort().reverse();
+    dSel.innerHTML = '';
+    dSel.appendChild(h('option', { value: '', text: 'Tất cả ngày' }));
+    dates.forEach(function (d) { dSel.appendChild(h('option', { value: d, text: d })); });
+    if (!dateInitialized && dates.length) {
+      dSel.value = dates[0];
+      dateInitialized = true;
+    } else {
+      dSel.value = dates.indexOf(prevDate) !== -1 ? prevDate : '';
+    }
   }
 
   function getVisibleResults() {
     const topic = $('filter-topic').value;
+    const date = $('filter-date').value;
     const sortBy = $('sort-by').value;
-    let list = allResults.filter(function (r) { return !topic || r.topic === topic; });
+
+    let list = allResults.filter(function (r) {
+      return (!topic || r.topic === topic) && (!date || String(r.submittedAt).slice(0, 10) === date);
+    });
 
     list = list.slice().sort(function (a, b) {
       if (sortBy === 'score') {
@@ -204,15 +302,69 @@
     return list;
   }
 
+  // ====== THỐNG KÊ TỪ HAY SAI NHẤT ======
+  function renderHeat(list) {
+    const box = $('heat-list');
+    const note = $('heat-note');
+    box.innerHTML = '';
+
+    // Bài cũ (trước khi nâng cấp) có chi tiết sai nhưng không có danh sách từ sai: bỏ qua
+    const tracked = list.filter(function (r) {
+      return (r.wrongWords && r.wrongWords.length) || !r.wrongDetails;
+    });
+    if (!tracked.length) {
+      note.textContent = 'Chưa có dữ liệu để thống kê trong bộ lọc này.';
+      return;
+    }
+
+    const counts = {};
+    tracked.forEach(function (r) {
+      const seen = {};
+      (r.wrongWords || []).forEach(function (w) {
+        if (!seen[w]) { seen[w] = true; counts[w] = (counts[w] || 0) + 1; }
+      });
+    });
+
+    const rows = Object.keys(counts).map(function (w) {
+      return { word: w, n: counts[w], rate: counts[w] / tracked.length };
+    });
+    rows.sort(function (a, b) { return (b.rate - a.rate) || a.word.localeCompare(b.word); });
+    const top = rows.slice(0, 5);
+
+    note.textContent = 'Tính trên ' + tracked.length + ' bài nộp' +
+      (tracked.length < 5 ? ' (số bài còn ít, chỉ mang tính tham khảo)' : '') +
+      '. Một từ được tính là sai nếu học sinh sai bất kỳ ô nào của từ đó.';
+
+    if (!top.length) {
+      box.appendChild(h('div', { class: 'muted', text: 'Chưa có từ nào bị sai.' }));
+      return;
+    }
+
+    top.forEach(function (x, i) {
+      const pct = Math.round(x.rate * 100);
+      const sev = pct >= 60 ? 'sev-high' : (pct >= 30 ? 'sev-mid' : '');
+      box.appendChild(h('div', { class: 'heat-item' }, [
+        h('div', { class: 'heat-rank', text: String(i + 1) }),
+        h('div', { class: 'heat-word', text: x.word }),
+        h('div', { class: 'heat-bar' }, [
+          h('div', { class: 'heat-fill ' + sev, style: 'width:' + pct + '%' })
+        ]),
+        h('div', { class: 'heat-pct', text: pct + '% (' + x.n + '/' + tracked.length + ' bạn)' })
+      ]));
+    });
+  }
+
+  // ====== BẢNG KẾT QUẢ ======
   function renderResults() {
     const list = getVisibleResults();
     const body = $('results-body');
     body.innerHTML = '';
     $('results-count').textContent = list.length + ' bài nộp';
+    renderHeat(list);
 
     if (!list.length) {
       const tr = h('tr');
-      tr.appendChild(h('td', { colspan: '8', class: 'center muted', text: 'Chưa có bài nộp nào.' }));
+      tr.appendChild(h('td', { colspan: '9', class: 'center muted', text: 'Chưa có bài nộp nào.' }));
       body.appendChild(tr);
       return;
     }
@@ -220,6 +372,8 @@
     list.forEach(function (r, i) {
       const pct = r.total ? Math.round(r.score / r.total * 100) : 0;
       const badgeClass = pct >= 80 ? 'badge-ok' : (pct >= 50 ? 'badge-mid' : 'badge-bad');
+      const tabs = Number(r.tabSwitches) || 0;
+      const tabClass = tabs === 0 ? 'badge-ok' : (tabs <= 2 ? 'badge-mid' : 'badge-bad');
 
       const tr = h('tr');
       tr.appendChild(h('td', { text: String(i + 1) }));
@@ -229,17 +383,20 @@
       tr.appendChild(h('td', { text: r.score + '/' + r.total }));
       tr.appendChild(h('td', {}, [h('span', { class: 'badge ' + badgeClass, text: pct + '%' })]));
       tr.appendChild(h('td', { text: fmt(r.seconds) }));
-            const tdWrong = h('td');
+      tr.appendChild(h('td', {}, [h('span', { class: 'badge ' + tabClass, text: tabs + ' lần' })]));
+
+      const tdWrong = h('td');
       if (r.wrongDetails) {
         const n = String(r.wrongDetails).split('\n').length;
         tdWrong.appendChild(h('details', {}, [
-          h('summary', { text: 'Xem ' + n + ' dòng sai', style: 'cursor:pointer;color:#2563eb' }),
+          h('summary', { text: 'Xem ' + n + ' dòng sai' }),
           h('div', { class: 'wrong-detail', text: r.wrongDetails })
         ]));
       } else {
         tdWrong.appendChild(h('span', { class: 'muted', text: '(không sai ý nào)' }));
       }
       tr.appendChild(tdWrong);
+
       body.appendChild(tr);
     });
   }
@@ -256,6 +413,7 @@
         'Tổng số ý': r.total,
         'Tỉ lệ (%)': r.total ? Math.round(r.score / r.total * 100) : 0,
         'Thời gian làm (mm:ss)': fmt(r.seconds),
+        'Rời tab (lần)': Number(r.tabSwitches) || 0,
         'Chi tiết câu sai': r.wrongDetails
       };
     });
@@ -286,8 +444,13 @@
 
   $('btn-test-csv').addEventListener('click', testCsv);
   $('btn-save-config').addEventListener('click', saveConfig);
+  $('preset-select').addEventListener('change', onPresetChange);
+  $('btn-activate').addEventListener('click', activatePreset);
+  $('btn-save-preset').addEventListener('click', savePreset);
+  $('btn-del-preset').addEventListener('click', deletePreset);
 
   $('filter-topic').addEventListener('change', renderResults);
+  $('filter-date').addEventListener('change', renderResults);
   $('sort-by').addEventListener('change', renderResults);
   $('btn-refresh').addEventListener('click', loadResults);
   $('btn-export').addEventListener('click', exportCsv);
